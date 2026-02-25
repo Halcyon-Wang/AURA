@@ -50,9 +50,6 @@
             z-index: 1;
             opacity: 0;
             transition: opacity 1.5s cubic-bezier(0.25, 0.1, 0.25, 1);
-
-            /* --- CRITICAL: THE OPTICAL CAMOUFLAGE --- */
-            background-color: #000000;
         }
 
         #canvas-container.revealed {
@@ -662,16 +659,6 @@
             powerPreference: "high-performance"
         });
         webglRenderer.setSize(window.innerWidth, window.innerHeight);
-        webglRenderer.setClearColor(0x000000, 0);
-
-        // --- SOTA: UNLOCK HARDWARE COLOR SPACE ---
-        // Automatically utilize Display-P3 on Apple XDR displays
-        webglRenderer.outputEncoding = THREE.sRGBEncoding;
-        if (window.matchMedia && window.matchMedia("(color-gamut: p3)").matches) {
-            // Note: colorSpace is relatively new in Three.js, but ensures the canvas tries to use full hardware gamut.
-            webglRenderer.outputColorSpace = THREE.DisplayP3ColorSpace || THREE.SRGBColorSpace;
-        }
-
         document.getElementById('canvas-container').appendChild(webglRenderer.domElement);
 
         const vertexShader = `
@@ -683,92 +670,71 @@
 `;
 
         const fragmentShader = `
-            uniform float uTime; 
-            uniform vec2 uResolution;
-            uniform vec3 uColorTop; 
-            uniform vec3 uColorBottom;
-            uniform float uLux;    
-            uniform float uRoughness;
-            uniform float uEnergy;
-            uniform float uFlux;
-            uniform float uIsRecording;
-            varying vec2 vUv;
+    uniform float uTime; 
+    uniform vec2 uResolution;
+    uniform vec3 uColorTop; 
+    uniform vec3 uColorBottom;
+    uniform float uLux;    
+    uniform float uRoughness;
+    uniform float uEnergy;
+    uniform float uFlux;
+    varying vec2 vUv;
+    
+    // --- ADD THESE HELPERS TO FRAGMENT SHADER ---
+    // High-frequency pseudo-random generator
+    float random(vec2 st) {
+        return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+    }
 
-            // --- 1. SOTA: Valve's Screen-Space Dither ---
-            // Designed for VR and high-end displays to be absolutely invisible.
-            vec3 screenSpaceDither(vec2 vScreenPos) {
-                vec3 vDither = vec3(dot(vec2(171.0, 231.0), vScreenPos.xy));
-                vDither.rgb = fract(vDither.rgb / vec3(103.0, 71.0, 97.0));
-                return vDither;
-            }
+    // 3D Noise for organic grain structure
+    float noise(vec2 st) {
+        vec2 i = floor(st);
+        vec2 f = fract(st);
+        float a = random(i);
+        float b = random(i + vec2(1.0, 0.0));
+        float c = random(i + vec2(0.0, 1.0));
+        float d = random(i + vec2(1.0, 1.0));
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+    }
 
-            // --- 2. SOTA: ACES Filmic Tone Mapping ---
-            // Academy Color Encoding System (Hollywood Standard)
-            // Distributes gradients with a filmic curve, eliminating harsh color steps.
-            vec3 ACESFilm(vec3 x) {
-                float a = 2.51;
-                float b = 0.03;
-                float c = 2.43;
-                float d = 0.59;
-                float e = 0.14;
-                return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
-            }
+    void main() {
+        vec2 normalizedCoords = gl_FragCoord.xy / uResolution.xy;
+        
+        // Removed uncentered X-axis math that caused bottom-left deadzones.
+        // Pure vertical interpolation to unhinder color stage.
+        float gradientFactor = normalizedCoords.y;
+        vec3 finalColor = mix(uColorBottom, uColorTop, gradientFactor);
 
-            // Standard hash for organic film grain
-            float hash(vec2 p) {
-                vec3 p3  = fract(vec3(p.xyx) * .1031);
-                p3 += dot(p3, p3.yzx + 33.33);
-                return fract((p3.x + p3.y) * p3.z);
-            }
+        finalColor *= uLux;
+        
+        // 1. Calculate Perceived Luminance
+        float luma = dot(finalColor, vec3(0.299, 0.587, 0.114));
+        
+        // 2. DELICATE ISO-200 GRAIN
+        // Significantly reduced intensity: 3.5% in deep abyssal darks, tapering to 1% in lights.
+        // This is enough to dither 8-bit banding without causing visual fatigue.
+        float grainStrength = mix(0.035, 0.01, luma); 
+        
+        // 3. RESTRAINED AGITATION (EMOTION-DRIVEN BOILING)
+        // Bind the boiling speed to the audio's roughness.
+        // Pure/quiet tracks = slow, elegant drift (2.0).
+        // Distorted/harsh tracks = aggressive boiling (50.0).
+        float boilSpeed = mix(2.0, 50.0, uRoughness);
+        
+        // Generate the UV coordinates with the dynamically damped time multiplier
+        vec2 grainUv = gl_FragCoord.xy * 2.0 + fract(uTime * boilSpeed) * 1000.0;
+        float grain = noise(grainUv);
+        
+        // Apply the intelligent grain
+        finalColor += (grain - 0.5) * grainStrength;
+        
+        // 4. Mathematical Safety Net (Ultra-subtle high-frequency dither)
+        finalColor += (random(gl_FragCoord.xy + uTime) - 0.5) * (1.5 / 255.0);
 
-            void main() {
-                vec2 normalizedCoords = gl_FragCoord.xy / uResolution.xy;
-                
-                // --- 3. SOTA: Non-Linear Optical Easing ---
-                // Linear mix causes "Mach Bands" (optical ridges). 
-                // We use smoothstep to create an S-curve, optically blurring the transition for the human eye.
-                float gradientFactor = smoothstep(0.0, 1.0, normalizedCoords.y);
-                
-                // Base vertical blend
-                vec3 finalColor = mix(uColorBottom, uColorTop, gradientFactor);
-
-                // Apply emotional luminosity
-                finalColor *= uLux;
-                
-                // Apply ACES Filmic Tone Mapping BEFORE Gamma
-                finalColor = ACESFilm(finalColor);
-                
-                // sRGB GAMMA CORRECTION (OETF)
-                finalColor = pow(finalColor, vec3(1.0 / 2.2));
-                float luma = dot(finalColor, vec3(0.299, 0.587, 0.114));
-                
-                // --- UNIVERSAL ADAPTIVE NOISE MASK ---
-                float blackMask = smoothstep(0.005, 0.03, luma);
-                
-                // 35MM FILM GRAIN
-                float boilSpeed = mix(5.0, 24.0, uRoughness);
-                float timeFrame = floor(uTime * boilSpeed);
-                float grainStrength = mix(0.025, 0.005, luma);
-                // HACK: Amplify grain slightly during recording to survive codec washout
-                grainStrength *= mix(1.0, 1.5, uIsRecording);
-                float grain = hash(gl_FragCoord.xy + timeFrame * 17.0) - 0.5;
-                finalColor += (grain * grainStrength) * blackMask;
-
-                // --- 4. SOTA: Valve's Invisible Dither Injection ---
-                vec3 dither = screenSpaceDither(gl_FragCoord.xy);
-                // THE SACRIFICIAL DITHER:
-                // VP9 destroys fine dither. When recording (uIsRecording == 1.0), we amplify the dither by 3.5x.
-                // The codec will crush the excess noise, leaving behind a perfectly smooth, unbanded gradient in the final video.
-                float ditherScale = mix(1.0, 3.5, uIsRecording);
-                finalColor += (dither * ditherScale / 255.0 - (0.5 * ditherScale / 255.0)) * blackMask;
-
-                // Cinematic Alpha Channel for Export
-                float exportAlpha = smoothstep(0.02, 0.8, luma);
-                exportAlpha = clamp(exportAlpha + 0.05, 0.0, 1.0);
-
-                gl_FragColor = vec4(finalColor, exportAlpha);
-            }
-        `;
+        gl_FragColor = vec4(finalColor, 1.0);
+    }
+`;
 
         const shaderMaterial = new THREE.ShaderMaterial({
             vertexShader: vertexShader,
@@ -781,8 +747,7 @@
                 uLux: { value: 1.0 },
                 uRoughness: { value: 0.0 },
                 uEnergy: { value: 0.0 },
-                uFlux: { value: 0.0 },
-                uIsRecording: { value: 0.0 }
+                uFlux: { value: 0.0 }
             }
         });
 
@@ -858,7 +823,7 @@
 
                 item.onclick = () => {
                     if (index === currentTrackIndex) return;
-                    console.log(`AURA: Director skipped to track ${index + 1} `);
+                    console.log(`AURA: Director skipped to track ${index + 1}`);
                     currentTrackIndex = index;
 
                     isTransitioning = true;
@@ -910,12 +875,12 @@
                 if (trajectoryCache[audioFile.name]) {
                     tempTrajectory = await trajectoryCache[audioFile.name];
                 } else {
-                    console.log(`AURA: First - time analysis: ${audioFile.name} `);
+                    console.log(`AURA: First-time analysis: ${audioFile.name}`);
                     try {
                         const formData = new FormData();
                         formData.append('file', audioFile);
 
-                        trajectoryCache[audioFile.name] = fetch('/analyze', { method: 'POST', body: formData })
+                        fetch('/analyze', { method: 'POST', body: formData })
                             .then(response => {
                                 if (response.ok) return response.json();
                                 throw new Error("HTTP error");
@@ -1165,7 +1130,7 @@
             if (isNaN(seconds)) return "0:00";
             const m = Math.floor(seconds / 60);
             const s = Math.floor(seconds % 60).toString().padStart(2, '0');
-            return `${m}:${s} `;
+            return `${m}:${s}`;
         };
 
         function updateUserInterface() {
@@ -1268,7 +1233,7 @@
                         const formData = new FormData();
                         formData.append('file', file);
 
-                        trajectoryCache[file.name] = fetch('/analyze', { method: 'POST', body: formData })
+                        fetch('/analyze', { method: 'POST', body: formData })
                             .then(res => res.ok ? res.json() : null)
                             .then(data => {
                                 console.log(`AURA: [CONCURRENCY POOL] Resolved -> ${file.name}`);
@@ -1340,17 +1305,17 @@
                     console.warn("AURA: No active audio element found for muxing.");
                 }
 
-                // 4. Force extreme bitrate (250 Mbps) to preserve dither against compression
+                // 4. Force 100Mbps VP9 for zero-banding cinematic quality
                 const options = {
                     mimeType: 'video/webm; codecs=vp9',
-                    videoBitsPerSecond: 250000000
+                    videoBitsPerSecond: 100000000
                 };
 
                 try {
                     // Initialize recorder with the COMBINED stream
                     cinematicRecorder = new MediaRecorder(combinedStream, options);
                 } catch (e) {
-                    console.warn("VP9 extreme bitrate failed, falling back to default:", e);
+                    console.warn("VP9 not supported, falling back to default.", e);
                     cinematicRecorder = new MediaRecorder(combinedStream);
                 }
 
@@ -1360,21 +1325,14 @@
 
                 cinematicRecorder.onstop = exportCinematicMaster;
 
-                // Turn ON Shader Sacrificial Dither to survive compression
-                if (shaderMaterial) shaderMaterial.uniforms.uIsRecording.value = 1.0;
-
                 cinematicRecorder.start();
                 isRecording = true;
                 tallyLight.classList.add('recording');
-                console.log("AURA: Cinematic Audiovisual Recording Started (250Mbps target)...");
+                console.log("AURA: Cinematic Audiovisual Recording Started...");
             } else {
                 cinematicRecorder.stop();
                 isRecording = false;
                 tallyLight.classList.remove('recording');
-
-                // Turn OFF Shader Sacrificial Dither
-                if (shaderMaterial) shaderMaterial.uniforms.uIsRecording.value = 0.0;
-
                 console.log("AURA: Cinematic Recording Stopped. Compiling master...");
             }
         }
