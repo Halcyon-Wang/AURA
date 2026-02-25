@@ -880,7 +880,7 @@
                         const formData = new FormData();
                         formData.append('file', audioFile);
 
-                        fetch('/analyze', { method: 'POST', body: formData })
+                        trajectoryCache[audioFile.name] = fetch('/analyze', { method: 'POST', body: formData })
                             .then(response => {
                                 if (response.ok) return response.json();
                                 throw new Error("HTTP error");
@@ -1233,7 +1233,7 @@
                         const formData = new FormData();
                         formData.append('file', file);
 
-                        fetch('/analyze', { method: 'POST', body: formData })
+                        trajectoryCache[file.name] = fetch('/analyze', { method: 'POST', body: formData })
                             .then(res => res.ok ? res.json() : null)
                             .then(data => {
                                 console.log(`AURA: [CONCURRENCY POOL] Resolved -> ${file.name}`);
