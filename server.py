@@ -42,7 +42,15 @@ def analyze_endpoint():
             trajectory = future.result() 
             
             return jsonify(trajectory)
-       if __name__ == '__main__':
+            
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+            
+        finally:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+
+if __name__ == '__main__':
     print(f"AURA ENGINE: Igniting Concurrency Pool with {CORE_COUNT} Dedicated DSP Cores...")
     port = int(os.environ.get("PORT", 5001))
     app.run(host='0.0.0.0', port=port, threaded=True)

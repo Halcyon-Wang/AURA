@@ -915,7 +915,7 @@
                         const formData = new FormData();
                         formData.append('file', audioFile);
 
-                       trajectoryCache[audioFile.name] = fetch('/analyze', { method: 'POST', body: formData })
+                        trajectoryCache[audioFile.name] = fetch('/analyze', { method: 'POST', body: formData })
                             .then(response => {
                                 if (response.ok) return response.json();
                                 throw new Error("HTTP error");
