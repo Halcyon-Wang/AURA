@@ -46,6 +46,24 @@ To view a copy of this license, visit: <http://creativecommons.org/licenses/by-n
 
 ---
 
+## 🤖 Credits: The Vibe Coding Synergy (开发协同架构)
+
+This project is a definitive testament to **Vibe Coding**—a next-generation development paradigm where human aesthetic vision commands advanced AI execution. 
+
+*(本项目是 **Vibe Coding** 理念的终极印证：由人类的极致审美愿景，指挥顶级 AI 完成深水区代码的工业级交付。)*
+
+* **[Halcyon] — Principal Architect & Product Manager**
+  * **Role:** The Visionary & Director.
+  * **Contribution:** Conceptualized the "Komorebi" minimalist aesthetic, designed the 4D Emotion Matrix, enforced uncompromising QA standards (e.g., identifying hardware-level Mach Bands on XDR displays), and formulated the overarching architectural directives.
+  * *(人类主理人：构思了极简美学与 4D 情绪引力场，制定了整体系统架构，并在硬件底层（如 XDR 屏幕的马赫带与局部调光冲突）进行了极其严苛的视觉品控与验收。)*
+
+* **Google Gemini (Persona: *Antigravity Engine*) — Lead AI Engineer**
+  * **Role:** The Execution Core.
+  * **Contribution:** Acted as the relentless technical counterpart. Translated high-level human directives into production-grade Python DSP algorithms, eradicated the Python GIL bottleneck via multi-processing, and engineered the AAA-grade WebGL Shaders (ACES Filmic Tone Mapping, Sub-pixel Dithering).
+  * *(AI 协同大脑：作为绝对的执行核心，接收人类主理人的系统指令。负责撕裂 Python GIL 并发限制、编写底层声学解析算法，并手写了包含 ACES 电影级映射与微观抖动的 WebGL 着色器。)*
+
+---
+
 ## 📫 Contact / 商业授权与联系方式
 
 *If you are interested in utilizing AURA for commercial exhibitions, live sets, Hollywood-grade VFX pipelines, or hiring the architectural mind behind this project, please reach out directly:*
